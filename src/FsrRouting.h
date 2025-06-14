@@ -53,6 +53,8 @@ class FsrRouting : public inet::RoutingProtocolBase,
     void handleStartOperation(inet::LifecycleOperation *operation) override;
     void handleStopOperation(inet::LifecycleOperation *operation) override;
     void handleCrashOperation(inet::LifecycleOperation *operation) override;
+    void clearState();
+
 
     // UDP callbacks
     virtual void socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet) override;

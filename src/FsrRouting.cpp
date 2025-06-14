@@ -32,14 +32,14 @@ void FsrRouting::initialize(int stage)
     }
 }
 
-void FsrRouting::handleMessageWhenUp(cMessage *msg)
+void FsrRouting::handleMessageWhenUp(inet::cMessage *msg)
 {
     if (msg->isSelfMessage()) {
         handleSelfMessage(msg);
     }
-    else if (auto packet = dynamic_cast<Packet*>(msg)) {
+    else if (auto packet = dynamic_cast<inet::Packet*>(msg)) {
         // UDP data or control packets
-        if (packet->getTag<PacketProtocolTag>()->getProtocol() == &Protocol::udp) {
+        if (packet->getTag<inet::PacketProtocolTag>()->getProtocol() == &inet::Protocol::udp) {
             socket.processMessage(packet);
         }
         else {
@@ -48,13 +48,13 @@ void FsrRouting::handleMessageWhenUp(cMessage *msg)
     }
 }
 
-void FsrRouting::handleSelfMessage(cMessage *msg)
+void FsrRouting::handleSelfMessage(inet::cMessage *msg)
 {
     // find which scope timer triggered
     for (int i = 0; i < SCOPE_LEVELS; ++i) {
         if (msg == scopeTimer[i]) {
             sendScopeUpdate(i);
-            scheduleAt(simTime() + scopeInterval[i], scopeTimer[i]);
+            scheduleAt(inet::simTime() + scopeInterval[i], scopeTimer[i]);
             break;
         }
     }
@@ -65,9 +65,38 @@ void FsrRouting::sendScopeUpdate(int level)
     // TODO: Construct and send a link-state packet via UDP
     // Hint: create a Packet, attach control info, set TTL=scopeRadius[level],
     // then use socket.sendTo(packet, L3Address::BROADCAST_ADDRESS, destPort);
+
+    // 1) Build the FsrPacket chunk
+        auto fsrChunk = inet::makeShared<FsrMessage>();
+        fsrChunk->setSequenceNumber(sequenceNumber++);
+        fsrChunk->setScopeLevel(level);
+
+        // origin = this node’s interface address
+        const char *ifname = par("interface").stringValue();
+        auto ie = interfaceTable->getInterfaceByName(ifname);
+        fsrChunk->setOrigin(ie->getNetworkAddress());
+
+        // fill neighbors list
+        auto neighbors = getOneHopNeighbors();  // your function returning vector<L3Address>
+        int n = neighbors.size();
+        fsrChunk->setNeighborsArraySize(n);
+        for (int i = 0; i < n; ++i)
+            fsrChunk->setNeighbors(i, neighbors[i]);
+
+        // 2) Wrap it in a Packet
+        auto packet = new Packet("FSR-Update");
+        packet->insertAtBack(fsrChunk);
+
+        // 3) Annotate as UDP and set IP TTL = scopeRadius[level]
+        packet->addTag<PacketProtocolTag>()->setProtocol(&Protocol::udp);
+        packet->addTagIfAbsent<HopLimitReq>()->setHopLimit(scopeRadius[level]);
+
+        // 4) Broadcast on UDP destPort
+        L3Address bcast = Ipv4Address::ALLONES_ADDRESS;
+        socket.sendTo(packet, bcast, destPort);
 }
 
-void FsrRouting::processRoutingPacket(Packet *pkt)
+void FsrRouting::processRoutingPacket(inet::Packet *pkt)
 {
     // TODO: extract sequence number and neighbor list from pkt,
     // update topologyDB, then call computeRoutes();
@@ -81,25 +110,41 @@ void FsrRouting::computeRoutes()
 }
 
 // UDP callback: data arrived from socket
-void FsrRouting::socketDataArrived(UdpSocket *socket, Packet *packet)
+void FsrRouting::socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet)
 {
     processRoutingPacket(packet);
 }
 
-void FsrRouting::socketErrorArrived(UdpSocket *socket, Indication *indication)
+void FsrRouting::socketErrorArrived(inet::UdpSocket *socket, inet::Indication *indication)
 {
     // ignore or log
     delete indication;
 }
 
-void FsrRouting::socketClosed(UdpSocket *socket)
+void FsrRouting::socketClosed(inet::UdpSocket *socket)
 {
     // cleanup if needed
 }
 
+void FsrRouting::clearState()
+{
+    // Cancel and delete any scheduled scope‐update timers
+    for (int i = 0; i < SCOPE_LEVELS; ++i) {
+        if (scopeTimer[i] != nullptr) {
+            cancelAndDelete(scopeTimer[i]);
+            scopeTimer[i] = nullptr;
+        }
+    }
+
+    // Reset sequence numbering and topology
+    sequenceNumber = 0;
+    topologyDB.clear();
+    nextHop.clear();
+}
+
 
 /* Lifecycle */
-void handleStartOperation(inet::LifecycleOperation *operation)
+void FsrRouting::handleStartOperation(inet::LifecycleOperation *operation)
 {
     // bind UDP socket
     socket.setOutputGate(gate("socketOut"));
@@ -109,20 +154,24 @@ void handleStartOperation(inet::LifecycleOperation *operation)
 
     // schedule scope timers
     for (int i = 0; i < SCOPE_LEVELS; ++i) {
-        scopeInterval[i] = par("scope" + std::to_string(i) + "Interval").doubleValue();
-        scopeRadius[i]   = par("scope" + std::to_string(i) + "Radius").intValue();
-        scopeTimer[i]    = new cMessage("scopeTimer");
-        scheduleAt(simTime() + scopeInterval[i], scopeTimer[i]);
+        std::string intervalName = "scope" + std::to_string(i) + "Interval";
+        std::string radiusName   = "scope" + std::to_string(i) + "Radius";
+
+        scopeInterval[i] = par(intervalName.c_str()).doubleValue();
+        scopeRadius[i]   = par(radiusName.c_str()).intValue();
+        scopeTimer[i]    = new inet::cMessage("scopeTimer");
+
+        scheduleAt(inet::simTime() + scopeInterval[i], scopeTimer[i]);
     }
 }
 
-void handleStopOperation(inet::LifecycleOperation *operation)
+void FsrRouting::handleStopOperation(inet::LifecycleOperation *operation)
 {
     socket.close();
     clearState();
 }
 
-void handleCrashOperation(inet::LifecycleOperation *operation)
+void FsrRouting::handleCrashOperation(inet::LifecycleOperation *operation)
 {
     socket.destroy();
     clearState();
