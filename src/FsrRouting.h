@@ -64,7 +64,7 @@ class FsrRouting : public inet::RoutingProtocolBase,
     // Core FSR routines
     virtual void handleSelfMessage(omnetpp::cMessage *msg);
     virtual void sendScopeUpdate(int level);
-    virtual void processRoutingPacket(inet::Packet *pkt);
+    virtual void processRoutingPacket(inet::Packet *packet);
     virtual void computeRoutes();
 
   public:

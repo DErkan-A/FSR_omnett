@@ -73,7 +73,7 @@ void FsrRouting::sendScopeUpdate(int level)
 
         // origin = this node’s interface address
         const char *ifname = par("interface").stringValue();
-        auto ie = interfaceTable->getInterfaceByName(ifname);
+        auto ie = interfaceTable->findInterfaceByName(ifname);
         fsrChunk->setOrigin(ie->getNetworkAddress());
 
         // fill neighbors list
@@ -96,12 +96,47 @@ void FsrRouting::sendScopeUpdate(int level)
         socket.sendTo(packet, bcast, destPort);
 }
 
-void FsrRouting::processRoutingPacket(inet::Packet *pkt)
+void FsrRouting::processRoutingPacket(inet::Packet *packet)
 {
     // TODO: extract sequence number and neighbor list from pkt,
     // update topologyDB, then call computeRoutes();
-    computeRoutes();
-    delete pkt;
+
+    auto arrivalPacketTime = packet->getArrivalTime();
+    unsigned int arrivalPacketTTL  = packet->getTag<inet::HopLimitInd>()->getHopLimit() - 1;
+    const auto& fsrPacket = packet->popAtFront<FsrPacket>();
+    if (!fsrPacket) {
+           delete packet;
+           return;
+       }
+
+    if (seqNum > topologyDB[addr].seqNum) {
+           // 2) extract fields
+           auto origin     = fsrPacket->getOrigin();
+           auto seq        = fsrPacket->getSequenceNumber();
+           auto scopeLevel = fsrPacket->getScopeLevel();
+           int  numNbrs    = fsrPacket->getNeighborsArraySize();
+
+           // 3) build a vector of neighbors
+           std::vector<inet::L3Address> nbrs;
+           nbrs.reserve(numNbrs);
+           for (int i = 0; i < numNbrs; ++i)
+               nbrs.push_back(fsrChunk->getNeighbors(i));
+
+           // 4) update topologyDB only if this is a newer sequence number
+           auto &rec = topologyDB[origin];
+           if (rec.seqNum < seq) {
+               rec.origin    = origin;
+               rec.seqNum    = seq;
+               rec.neighbors = std::move(nbrs);
+               // 5) recompute routes whenever topology changes
+               computeRoutes();
+           }
+
+           // 6) cleanup
+           delete pkt;
+    }
+
+
 }
 
 void FsrRouting::computeRoutes()
@@ -112,6 +147,7 @@ void FsrRouting::computeRoutes()
 // UDP callback: data arrived from socket
 void FsrRouting::socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet)
 {
+    //Like in AODV call the process function
     processRoutingPacket(packet);
 }
 
