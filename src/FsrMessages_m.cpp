@@ -150,23 +150,23 @@ void doParsimUnpacking(omnetpp::cCommBuffer *, T& t)
 
 }  // namespace omnetpp
 
-Register_Class(FsrMessage)
+Register_Class(FsrPacket)
 
-FsrMessage::FsrMessage() : ::inet::FieldsChunk()
+FsrPacket::FsrPacket() : ::inet::FieldsChunk()
 {
 }
 
-FsrMessage::FsrMessage(const FsrMessage& other) : ::inet::FieldsChunk(other)
+FsrPacket::FsrPacket(const FsrPacket& other) : ::inet::FieldsChunk(other)
 {
     copy(other);
 }
 
-FsrMessage::~FsrMessage()
+FsrPacket::~FsrPacket()
 {
     delete [] this->neighbors;
 }
 
-FsrMessage& FsrMessage::operator=(const FsrMessage& other)
+FsrPacket& FsrPacket::operator=(const FsrPacket& other)
 {
     if (this == &other) return *this;
     ::inet::FieldsChunk::operator=(other);
@@ -174,7 +174,7 @@ FsrMessage& FsrMessage::operator=(const FsrMessage& other)
     return *this;
 }
 
-void FsrMessage::copy(const FsrMessage& other)
+void FsrPacket::copy(const FsrPacket& other)
 {
     this->sequenceNumber = other.sequenceNumber;
     this->scopeLevel = other.scopeLevel;
@@ -187,7 +187,7 @@ void FsrMessage::copy(const FsrMessage& other)
     }
 }
 
-void FsrMessage::parsimPack(omnetpp::cCommBuffer *b) const
+void FsrPacket::parsimPack(omnetpp::cCommBuffer *b) const
 {
     ::inet::FieldsChunk::parsimPack(b);
     doParsimPacking(b,this->sequenceNumber);
@@ -197,7 +197,7 @@ void FsrMessage::parsimPack(omnetpp::cCommBuffer *b) const
     doParsimArrayPacking(b,this->neighbors,neighbors_arraysize);
 }
 
-void FsrMessage::parsimUnpack(omnetpp::cCommBuffer *b)
+void FsrPacket::parsimUnpack(omnetpp::cCommBuffer *b)
 {
     ::inet::FieldsChunk::parsimUnpack(b);
     doParsimUnpacking(b,this->sequenceNumber);
@@ -213,51 +213,51 @@ void FsrMessage::parsimUnpack(omnetpp::cCommBuffer *b)
     }
 }
 
-unsigned int FsrMessage::getSequenceNumber() const
+unsigned int FsrPacket::getSequenceNumber() const
 {
     return this->sequenceNumber;
 }
 
-void FsrMessage::setSequenceNumber(unsigned int sequenceNumber)
+void FsrPacket::setSequenceNumber(unsigned int sequenceNumber)
 {
     handleChange();
     this->sequenceNumber = sequenceNumber;
 }
 
-int FsrMessage::getScopeLevel() const
+int FsrPacket::getScopeLevel() const
 {
     return this->scopeLevel;
 }
 
-void FsrMessage::setScopeLevel(int scopeLevel)
+void FsrPacket::setScopeLevel(int scopeLevel)
 {
     handleChange();
     this->scopeLevel = scopeLevel;
 }
 
-const inet::L3Address& FsrMessage::getOrigin() const
+const inet::L3Address& FsrPacket::getOrigin() const
 {
     return this->origin;
 }
 
-void FsrMessage::setOrigin(const inet::L3Address& origin)
+void FsrPacket::setOrigin(const inet::L3Address& origin)
 {
     handleChange();
     this->origin = origin;
 }
 
-size_t FsrMessage::getNeighborsArraySize() const
+size_t FsrPacket::getNeighborsArraySize() const
 {
     return neighbors_arraysize;
 }
 
-const inet::L3Address& FsrMessage::getNeighbors(size_t k) const
+const inet::L3Address& FsrPacket::getNeighbors(size_t k) const
 {
     if (k >= neighbors_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbors_arraysize, (unsigned long)k);
     return this->neighbors[k];
 }
 
-void FsrMessage::setNeighborsArraySize(size_t newSize)
+void FsrPacket::setNeighborsArraySize(size_t newSize)
 {
     handleChange();
     inet::L3Address *neighbors2 = (newSize==0) ? nullptr : new inet::L3Address[newSize];
@@ -269,14 +269,14 @@ void FsrMessage::setNeighborsArraySize(size_t newSize)
     neighbors_arraysize = newSize;
 }
 
-void FsrMessage::setNeighbors(size_t k, const inet::L3Address& neighbors)
+void FsrPacket::setNeighbors(size_t k, const inet::L3Address& neighbors)
 {
     if (k >= neighbors_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbors_arraysize, (unsigned long)k);
     handleChange();
     this->neighbors[k] = neighbors;
 }
 
-void FsrMessage::insertNeighbors(size_t k, const inet::L3Address& neighbors)
+void FsrPacket::insertNeighbors(size_t k, const inet::L3Address& neighbors)
 {
     if (k > neighbors_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbors_arraysize, (unsigned long)k);
     handleChange();
@@ -293,12 +293,12 @@ void FsrMessage::insertNeighbors(size_t k, const inet::L3Address& neighbors)
     neighbors_arraysize = newSize;
 }
 
-void FsrMessage::appendNeighbors(const inet::L3Address& neighbors)
+void FsrPacket::appendNeighbors(const inet::L3Address& neighbors)
 {
     insertNeighbors(neighbors_arraysize, neighbors);
 }
 
-void FsrMessage::eraseNeighbors(size_t k)
+void FsrPacket::eraseNeighbors(size_t k)
 {
     if (k >= neighbors_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbors_arraysize, (unsigned long)k);
     handleChange();
@@ -314,7 +314,7 @@ void FsrMessage::eraseNeighbors(size_t k)
     neighbors_arraysize = newSize;
 }
 
-class FsrMessageDescriptor : public omnetpp::cClassDescriptor
+class FsrPacketDescriptor : public omnetpp::cClassDescriptor
 {
   private:
     mutable const char **propertyNames;
@@ -325,8 +325,8 @@ class FsrMessageDescriptor : public omnetpp::cClassDescriptor
         FIELD_neighbors,
     };
   public:
-    FsrMessageDescriptor();
-    virtual ~FsrMessageDescriptor();
+    FsrPacketDescriptor();
+    virtual ~FsrPacketDescriptor();
 
     virtual bool doesSupport(omnetpp::cObject *obj) const override;
     virtual const char **getPropertyNames() const override;
@@ -352,24 +352,24 @@ class FsrMessageDescriptor : public omnetpp::cClassDescriptor
     virtual void setFieldStructValuePointer(omnetpp::any_ptr object, int field, int i, omnetpp::any_ptr ptr) const override;
 };
 
-Register_ClassDescriptor(FsrMessageDescriptor)
+Register_ClassDescriptor(FsrPacketDescriptor)
 
-FsrMessageDescriptor::FsrMessageDescriptor() : omnetpp::cClassDescriptor(omnetpp::opp_typename(typeid(FsrMessage)), "inet::FieldsChunk")
+FsrPacketDescriptor::FsrPacketDescriptor() : omnetpp::cClassDescriptor(omnetpp::opp_typename(typeid(FsrPacket)), "inet::FieldsChunk")
 {
     propertyNames = nullptr;
 }
 
-FsrMessageDescriptor::~FsrMessageDescriptor()
+FsrPacketDescriptor::~FsrPacketDescriptor()
 {
     delete[] propertyNames;
 }
 
-bool FsrMessageDescriptor::doesSupport(omnetpp::cObject *obj) const
+bool FsrPacketDescriptor::doesSupport(omnetpp::cObject *obj) const
 {
-    return dynamic_cast<FsrMessage *>(obj)!=nullptr;
+    return dynamic_cast<FsrPacket *>(obj)!=nullptr;
 }
 
-const char **FsrMessageDescriptor::getPropertyNames() const
+const char **FsrPacketDescriptor::getPropertyNames() const
 {
     if (!propertyNames) {
         static const char *names[] = {  nullptr };
@@ -380,19 +380,19 @@ const char **FsrMessageDescriptor::getPropertyNames() const
     return propertyNames;
 }
 
-const char *FsrMessageDescriptor::getProperty(const char *propertyName) const
+const char *FsrPacketDescriptor::getProperty(const char *propertyName) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     return base ? base->getProperty(propertyName) : nullptr;
 }
 
-int FsrMessageDescriptor::getFieldCount() const
+int FsrPacketDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     return base ? 4+base->getFieldCount() : 4;
 }
 
-unsigned int FsrMessageDescriptor::getFieldTypeFlags(int field) const
+unsigned int FsrPacketDescriptor::getFieldTypeFlags(int field) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -409,7 +409,7 @@ unsigned int FsrMessageDescriptor::getFieldTypeFlags(int field) const
     return (field >= 0 && field < 4) ? fieldTypeFlags[field] : 0;
 }
 
-const char *FsrMessageDescriptor::getFieldName(int field) const
+const char *FsrPacketDescriptor::getFieldName(int field) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -426,7 +426,7 @@ const char *FsrMessageDescriptor::getFieldName(int field) const
     return (field >= 0 && field < 4) ? fieldNames[field] : nullptr;
 }
 
-int FsrMessageDescriptor::findField(const char *fieldName) const
+int FsrPacketDescriptor::findField(const char *fieldName) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     int baseIndex = base ? base->getFieldCount() : 0;
@@ -437,7 +437,7 @@ int FsrMessageDescriptor::findField(const char *fieldName) const
     return base ? base->findField(fieldName) : -1;
 }
 
-const char *FsrMessageDescriptor::getFieldTypeString(int field) const
+const char *FsrPacketDescriptor::getFieldTypeString(int field) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -454,7 +454,7 @@ const char *FsrMessageDescriptor::getFieldTypeString(int field) const
     return (field >= 0 && field < 4) ? fieldTypeStrings[field] : nullptr;
 }
 
-const char **FsrMessageDescriptor::getFieldPropertyNames(int field) const
+const char **FsrPacketDescriptor::getFieldPropertyNames(int field) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -467,7 +467,7 @@ const char **FsrMessageDescriptor::getFieldPropertyNames(int field) const
     }
 }
 
-const char *FsrMessageDescriptor::getFieldProperty(int field, const char *propertyName) const
+const char *FsrPacketDescriptor::getFieldProperty(int field, const char *propertyName) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -480,7 +480,7 @@ const char *FsrMessageDescriptor::getFieldProperty(int field, const char *proper
     }
 }
 
-int FsrMessageDescriptor::getFieldArraySize(omnetpp::any_ptr object, int field) const
+int FsrPacketDescriptor::getFieldArraySize(omnetpp::any_ptr object, int field) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -488,14 +488,14 @@ int FsrMessageDescriptor::getFieldArraySize(omnetpp::any_ptr object, int field) 
             return base->getFieldArraySize(object, field);
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         case FIELD_neighbors: return pp->getNeighborsArraySize();
         default: return 0;
     }
 }
 
-void FsrMessageDescriptor::setFieldArraySize(omnetpp::any_ptr object, int field, int size) const
+void FsrPacketDescriptor::setFieldArraySize(omnetpp::any_ptr object, int field, int size) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -505,14 +505,14 @@ void FsrMessageDescriptor::setFieldArraySize(omnetpp::any_ptr object, int field,
         }
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         case FIELD_neighbors: pp->setNeighborsArraySize(size); break;
-        default: throw omnetpp::cRuntimeError("Cannot set array size of field %d of class 'FsrMessage'", field);
+        default: throw omnetpp::cRuntimeError("Cannot set array size of field %d of class 'FsrPacket'", field);
     }
 }
 
-const char *FsrMessageDescriptor::getFieldDynamicTypeString(omnetpp::any_ptr object, int field, int i) const
+const char *FsrPacketDescriptor::getFieldDynamicTypeString(omnetpp::any_ptr object, int field, int i) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -520,13 +520,13 @@ const char *FsrMessageDescriptor::getFieldDynamicTypeString(omnetpp::any_ptr obj
             return base->getFieldDynamicTypeString(object,field,i);
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         default: return nullptr;
     }
 }
 
-std::string FsrMessageDescriptor::getFieldValueAsString(omnetpp::any_ptr object, int field, int i) const
+std::string FsrPacketDescriptor::getFieldValueAsString(omnetpp::any_ptr object, int field, int i) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -534,7 +534,7 @@ std::string FsrMessageDescriptor::getFieldValueAsString(omnetpp::any_ptr object,
             return base->getFieldValueAsString(object,field,i);
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         case FIELD_sequenceNumber: return ulong2string(pp->getSequenceNumber());
         case FIELD_scopeLevel: return long2string(pp->getScopeLevel());
@@ -544,7 +544,7 @@ std::string FsrMessageDescriptor::getFieldValueAsString(omnetpp::any_ptr object,
     }
 }
 
-void FsrMessageDescriptor::setFieldValueAsString(omnetpp::any_ptr object, int field, int i, const char *value) const
+void FsrPacketDescriptor::setFieldValueAsString(omnetpp::any_ptr object, int field, int i, const char *value) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -554,15 +554,15 @@ void FsrMessageDescriptor::setFieldValueAsString(omnetpp::any_ptr object, int fi
         }
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         case FIELD_sequenceNumber: pp->setSequenceNumber(string2ulong(value)); break;
         case FIELD_scopeLevel: pp->setScopeLevel(string2long(value)); break;
-        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'FsrMessage'", field);
+        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'FsrPacket'", field);
     }
 }
 
-omnetpp::cValue FsrMessageDescriptor::getFieldValue(omnetpp::any_ptr object, int field, int i) const
+omnetpp::cValue FsrPacketDescriptor::getFieldValue(omnetpp::any_ptr object, int field, int i) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -570,17 +570,17 @@ omnetpp::cValue FsrMessageDescriptor::getFieldValue(omnetpp::any_ptr object, int
             return base->getFieldValue(object,field,i);
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         case FIELD_sequenceNumber: return (omnetpp::intval_t)(pp->getSequenceNumber());
         case FIELD_scopeLevel: return pp->getScopeLevel();
         case FIELD_origin: return omnetpp::toAnyPtr(&pp->getOrigin()); break;
         case FIELD_neighbors: return omnetpp::toAnyPtr(&pp->getNeighbors(i)); break;
-        default: throw omnetpp::cRuntimeError("Cannot return field %d of class 'FsrMessage' as cValue -- field index out of range?", field);
+        default: throw omnetpp::cRuntimeError("Cannot return field %d of class 'FsrPacket' as cValue -- field index out of range?", field);
     }
 }
 
-void FsrMessageDescriptor::setFieldValue(omnetpp::any_ptr object, int field, int i, const omnetpp::cValue& value) const
+void FsrPacketDescriptor::setFieldValue(omnetpp::any_ptr object, int field, int i, const omnetpp::cValue& value) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -590,15 +590,15 @@ void FsrMessageDescriptor::setFieldValue(omnetpp::any_ptr object, int field, int
         }
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         case FIELD_sequenceNumber: pp->setSequenceNumber(omnetpp::checked_int_cast<unsigned int>(value.intValue())); break;
         case FIELD_scopeLevel: pp->setScopeLevel(omnetpp::checked_int_cast<int>(value.intValue())); break;
-        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'FsrMessage'", field);
+        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'FsrPacket'", field);
     }
 }
 
-const char *FsrMessageDescriptor::getFieldStructName(int field) const
+const char *FsrPacketDescriptor::getFieldStructName(int field) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -611,7 +611,7 @@ const char *FsrMessageDescriptor::getFieldStructName(int field) const
     };
 }
 
-omnetpp::any_ptr FsrMessageDescriptor::getFieldStructValuePointer(omnetpp::any_ptr object, int field, int i) const
+omnetpp::any_ptr FsrPacketDescriptor::getFieldStructValuePointer(omnetpp::any_ptr object, int field, int i) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -619,7 +619,7 @@ omnetpp::any_ptr FsrMessageDescriptor::getFieldStructValuePointer(omnetpp::any_p
             return base->getFieldStructValuePointer(object, field, i);
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         case FIELD_origin: return omnetpp::toAnyPtr(&pp->getOrigin()); break;
         case FIELD_neighbors: return omnetpp::toAnyPtr(&pp->getNeighbors(i)); break;
@@ -627,7 +627,7 @@ omnetpp::any_ptr FsrMessageDescriptor::getFieldStructValuePointer(omnetpp::any_p
     }
 }
 
-void FsrMessageDescriptor::setFieldStructValuePointer(omnetpp::any_ptr object, int field, int i, omnetpp::any_ptr ptr) const
+void FsrPacketDescriptor::setFieldStructValuePointer(omnetpp::any_ptr object, int field, int i, omnetpp::any_ptr ptr) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     if (base) {
@@ -637,9 +637,9 @@ void FsrMessageDescriptor::setFieldStructValuePointer(omnetpp::any_ptr object, i
         }
         field -= base->getFieldCount();
     }
-    FsrMessage *pp = omnetpp::fromAnyPtr<FsrMessage>(object); (void)pp;
+    FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
-        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'FsrMessage'", field);
+        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'FsrPacket'", field);
     }
 }
 

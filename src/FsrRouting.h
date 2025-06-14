@@ -37,7 +37,7 @@ class FsrRouting : public inet::RoutingProtocolBase,
 
     // Topology database entry for each origin
     struct LinkStateRecord {
-        inet::L3Address                   origin;
+        omnetpp::simtime_t                timestamp;
         unsigned int                      seqNum;
         std::vector<inet::L3Address>      neighbors;
     };
@@ -66,6 +66,9 @@ class FsrRouting : public inet::RoutingProtocolBase,
     virtual void sendScopeUpdate(int level);
     virtual void processRoutingPacket(inet::Packet *packet);
     virtual void computeRoutes();
+
+    //Helpers
+    inet::L3Address FsrRouting::getSelfIPAddress() const;
 
   public:
     FsrRouting();

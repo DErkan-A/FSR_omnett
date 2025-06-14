@@ -102,41 +102,50 @@ void FsrRouting::processRoutingPacket(inet::Packet *packet)
     // update topologyDB, then call computeRoutes();
 
     auto arrivalPacketTime = packet->getArrivalTime();
-    unsigned int arrivalPacketTTL  = packet->getTag<inet::HopLimitInd>()->getHopLimit() - 1;
+    unsigned int arrivalPacketTTL  = packet->getTag<HopLimitInd>()->getHopLimit() - 1;
     const auto& fsrPacket = packet->popAtFront<FsrPacket>();
     if (!fsrPacket) {
            delete packet;
            return;
        }
 
-    if (seqNum > topologyDB[addr].seqNum) {
-           // 2) extract fields
-           auto origin     = fsrPacket->getOrigin();
-           auto seq        = fsrPacket->getSequenceNumber();
-           auto scopeLevel = fsrPacket->getScopeLevel();
-           int  numNbrs    = fsrPacket->getNeighborsArraySize();
+    //First check the origin of the message to compare sequence numbers
+    auto seq  = fsrPacket->getSequenceNumber();
+    auto origin     = fsrPacket->getOrigin();
+    if (seq > topologyDB[origin].seqNum) {
+        // extract the other relevant information
+       auto scopeLevel = fsrPacket->getScopeLevel();
+       int  numNbrs    = fsrPacket->getNeighborsArraySize();
 
-           // 3) build a vector of neighbors
-           std::vector<inet::L3Address> nbrs;
-           nbrs.reserve(numNbrs);
-           for (int i = 0; i < numNbrs; ++i)
-               nbrs.push_back(fsrChunk->getNeighbors(i));
+       if(scopeLevel == 1){
 
-           // 4) update topologyDB only if this is a newer sequence number
-           auto &rec = topologyDB[origin];
-           if (rec.seqNum < seq) {
-               rec.origin    = origin;
-               rec.seqNum    = seq;
-               rec.neighbors = std::move(nbrs);
-               // 5) recompute routes whenever topology changes
-               computeRoutes();
-           }
 
-           // 6) cleanup
-           delete pkt;
+
+       }
+       else{
+       // 3) build a set of neighbors
+       std::set<inet::L3Address> nbrs;
+       for (int i = 0; i < numNbrs; ++i)
+           nbrs.insert(fsrPacket->getNeighbors(i));
+
+       // 4) update topologyDB
+       auto &rec = topologyDB[origin];
+       rec.seqNum    = seq;
+       rec.neighbors = std::move(nbrs);
+       // 5) recompute routes whenever topology changes
+       computeRoutes();
+       }
+       // 6) cleanup
+       delete packet;
     }
 
 
+}
+
+//Function taken from AODV library
+inet::L3Address FsrRouting::getSelfIPAddress() const
+{
+    return routingTable->getRouterIdAsGeneric();
 }
 
 void FsrRouting::computeRoutes()
