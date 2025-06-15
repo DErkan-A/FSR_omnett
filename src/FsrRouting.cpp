@@ -26,7 +26,6 @@ FsrRouting::FsrRouting()
 FsrRouting::~FsrRouting()
 {
     clearState();
-    socket.close();
 }
 
 void FsrRouting::initialize(int stage)

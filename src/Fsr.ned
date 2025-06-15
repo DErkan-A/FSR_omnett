@@ -21,7 +21,7 @@ simple Fsr
         // Fisheye scope radii (TTL in hops)
         int scope0Radius = default(1);
         int scope1Radius = default(3);
-        int scope2Radius = default(5);
+        int scope2Radius = default(50);
 
         // UDP socket port
         int udpPort = default(654);
