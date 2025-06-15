@@ -3,6 +3,7 @@
 
 #include <map>
 #include <vector>
+#include <set>
 
 #include "inet/common/INETDefs.h"
 #include "inet/common/ModuleRefByPar.h"
@@ -11,6 +12,7 @@
 #include "inet/routing/base/RoutingProtocolBase.h"
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
 #include "inet/networklayer/ipv4/Ipv4Header_m.h"
+#include <inet/networklayer/common/L3Address.h>
 
 #include "FsrMessages_m.h"
 
@@ -31,6 +33,7 @@ class FsrRouting : public inet::RoutingProtocolBase,
     omnetpp::simtime_t scopeInterval[SCOPE_LEVELS];
     int               scopeRadius  [SCOPE_LEVELS];
     omnetpp::cMessage* scopeTimer   [SCOPE_LEVELS] = {nullptr, nullptr, nullptr};
+    double maxDelay= 1;
 
     // Link‐state sequence number
     unsigned int sequenceNumber = 0;
@@ -39,7 +42,7 @@ class FsrRouting : public inet::RoutingProtocolBase,
     struct LinkStateRecord {
         omnetpp::simtime_t                timestamp;
         unsigned int                      seqNum;
-        std::vector<inet::L3Address>      neighbors;
+        std::set<inet::L3Address>      neighbours;
     };
     std::map<inet::L3Address, LinkStateRecord> topologyDB;
 
@@ -68,7 +71,8 @@ class FsrRouting : public inet::RoutingProtocolBase,
     virtual void computeRoutes();
 
     //Helpers
-    inet::L3Address FsrRouting::getSelfIPAddress() const;
+    inet::L3Address getSelfIPAddress() const;
+    void sendPacket(const inet::Ptr<const FsrPacket>& fsr_packet, int fsr_TTL);
 
   public:
     FsrRouting();

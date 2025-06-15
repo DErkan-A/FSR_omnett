@@ -16,6 +16,7 @@ simple Fsr
         double scope0Interval @unit(s) = default(1s);
         double scope1Interval @unit(s) = default(5s);
         double scope2Interval @unit(s) = default(15s);
+        double randomDelay @unit(s) = default(1s);
 
         // Fisheye scope radii (TTL in hops)
         int scope0Radius = default(1);

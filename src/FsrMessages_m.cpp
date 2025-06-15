@@ -163,7 +163,7 @@ FsrPacket::FsrPacket(const FsrPacket& other) : ::inet::FieldsChunk(other)
 
 FsrPacket::~FsrPacket()
 {
-    delete [] this->neighbors;
+    delete [] this->neighbours;
 }
 
 FsrPacket& FsrPacket::operator=(const FsrPacket& other)
@@ -179,11 +179,11 @@ void FsrPacket::copy(const FsrPacket& other)
     this->sequenceNumber = other.sequenceNumber;
     this->scopeLevel = other.scopeLevel;
     this->origin = other.origin;
-    delete [] this->neighbors;
-    this->neighbors = (other.neighbors_arraysize==0) ? nullptr : new inet::L3Address[other.neighbors_arraysize];
-    neighbors_arraysize = other.neighbors_arraysize;
-    for (size_t i = 0; i < neighbors_arraysize; i++) {
-        this->neighbors[i] = other.neighbors[i];
+    delete [] this->neighbours;
+    this->neighbours = (other.neighbours_arraysize==0) ? nullptr : new inet::L3Address[other.neighbours_arraysize];
+    neighbours_arraysize = other.neighbours_arraysize;
+    for (size_t i = 0; i < neighbours_arraysize; i++) {
+        this->neighbours[i] = other.neighbours[i];
     }
 }
 
@@ -193,8 +193,8 @@ void FsrPacket::parsimPack(omnetpp::cCommBuffer *b) const
     doParsimPacking(b,this->sequenceNumber);
     doParsimPacking(b,this->scopeLevel);
     doParsimPacking(b,this->origin);
-    b->pack(neighbors_arraysize);
-    doParsimArrayPacking(b,this->neighbors,neighbors_arraysize);
+    b->pack(neighbours_arraysize);
+    doParsimArrayPacking(b,this->neighbours,neighbours_arraysize);
 }
 
 void FsrPacket::parsimUnpack(omnetpp::cCommBuffer *b)
@@ -203,13 +203,13 @@ void FsrPacket::parsimUnpack(omnetpp::cCommBuffer *b)
     doParsimUnpacking(b,this->sequenceNumber);
     doParsimUnpacking(b,this->scopeLevel);
     doParsimUnpacking(b,this->origin);
-    delete [] this->neighbors;
-    b->unpack(neighbors_arraysize);
-    if (neighbors_arraysize == 0) {
-        this->neighbors = nullptr;
+    delete [] this->neighbours;
+    b->unpack(neighbours_arraysize);
+    if (neighbours_arraysize == 0) {
+        this->neighbours = nullptr;
     } else {
-        this->neighbors = new inet::L3Address[neighbors_arraysize];
-        doParsimArrayUnpacking(b,this->neighbors,neighbors_arraysize);
+        this->neighbours = new inet::L3Address[neighbours_arraysize];
+        doParsimArrayUnpacking(b,this->neighbours,neighbours_arraysize);
     }
 }
 
@@ -246,72 +246,72 @@ void FsrPacket::setOrigin(const inet::L3Address& origin)
     this->origin = origin;
 }
 
-size_t FsrPacket::getNeighborsArraySize() const
+size_t FsrPacket::getNeighboursArraySize() const
 {
-    return neighbors_arraysize;
+    return neighbours_arraysize;
 }
 
-const inet::L3Address& FsrPacket::getNeighbors(size_t k) const
+const inet::L3Address& FsrPacket::getNeighbours(size_t k) const
 {
-    if (k >= neighbors_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbors_arraysize, (unsigned long)k);
-    return this->neighbors[k];
+    if (k >= neighbours_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbours_arraysize, (unsigned long)k);
+    return this->neighbours[k];
 }
 
-void FsrPacket::setNeighborsArraySize(size_t newSize)
+void FsrPacket::setNeighboursArraySize(size_t newSize)
 {
     handleChange();
-    inet::L3Address *neighbors2 = (newSize==0) ? nullptr : new inet::L3Address[newSize];
-    size_t minSize = neighbors_arraysize < newSize ? neighbors_arraysize : newSize;
+    inet::L3Address *neighbours2 = (newSize==0) ? nullptr : new inet::L3Address[newSize];
+    size_t minSize = neighbours_arraysize < newSize ? neighbours_arraysize : newSize;
     for (size_t i = 0; i < minSize; i++)
-        neighbors2[i] = this->neighbors[i];
-    delete [] this->neighbors;
-    this->neighbors = neighbors2;
-    neighbors_arraysize = newSize;
+        neighbours2[i] = this->neighbours[i];
+    delete [] this->neighbours;
+    this->neighbours = neighbours2;
+    neighbours_arraysize = newSize;
 }
 
-void FsrPacket::setNeighbors(size_t k, const inet::L3Address& neighbors)
+void FsrPacket::setNeighbours(size_t k, const inet::L3Address& neighbours)
 {
-    if (k >= neighbors_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbors_arraysize, (unsigned long)k);
+    if (k >= neighbours_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbours_arraysize, (unsigned long)k);
     handleChange();
-    this->neighbors[k] = neighbors;
+    this->neighbours[k] = neighbours;
 }
 
-void FsrPacket::insertNeighbors(size_t k, const inet::L3Address& neighbors)
+void FsrPacket::insertNeighbours(size_t k, const inet::L3Address& neighbours)
 {
-    if (k > neighbors_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbors_arraysize, (unsigned long)k);
+    if (k > neighbours_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbours_arraysize, (unsigned long)k);
     handleChange();
-    size_t newSize = neighbors_arraysize + 1;
-    inet::L3Address *neighbors2 = new inet::L3Address[newSize];
+    size_t newSize = neighbours_arraysize + 1;
+    inet::L3Address *neighbours2 = new inet::L3Address[newSize];
     size_t i;
     for (i = 0; i < k; i++)
-        neighbors2[i] = this->neighbors[i];
-    neighbors2[k] = neighbors;
+        neighbours2[i] = this->neighbours[i];
+    neighbours2[k] = neighbours;
     for (i = k + 1; i < newSize; i++)
-        neighbors2[i] = this->neighbors[i-1];
-    delete [] this->neighbors;
-    this->neighbors = neighbors2;
-    neighbors_arraysize = newSize;
+        neighbours2[i] = this->neighbours[i-1];
+    delete [] this->neighbours;
+    this->neighbours = neighbours2;
+    neighbours_arraysize = newSize;
 }
 
-void FsrPacket::appendNeighbors(const inet::L3Address& neighbors)
+void FsrPacket::appendNeighbours(const inet::L3Address& neighbours)
 {
-    insertNeighbors(neighbors_arraysize, neighbors);
+    insertNeighbours(neighbours_arraysize, neighbours);
 }
 
-void FsrPacket::eraseNeighbors(size_t k)
+void FsrPacket::eraseNeighbours(size_t k)
 {
-    if (k >= neighbors_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbors_arraysize, (unsigned long)k);
+    if (k >= neighbours_arraysize) throw omnetpp::cRuntimeError("Array of size %lu indexed by %lu", (unsigned long)neighbours_arraysize, (unsigned long)k);
     handleChange();
-    size_t newSize = neighbors_arraysize - 1;
-    inet::L3Address *neighbors2 = (newSize == 0) ? nullptr : new inet::L3Address[newSize];
+    size_t newSize = neighbours_arraysize - 1;
+    inet::L3Address *neighbours2 = (newSize == 0) ? nullptr : new inet::L3Address[newSize];
     size_t i;
     for (i = 0; i < k; i++)
-        neighbors2[i] = this->neighbors[i];
+        neighbours2[i] = this->neighbours[i];
     for (i = k; i < newSize; i++)
-        neighbors2[i] = this->neighbors[i+1];
-    delete [] this->neighbors;
-    this->neighbors = neighbors2;
-    neighbors_arraysize = newSize;
+        neighbours2[i] = this->neighbours[i+1];
+    delete [] this->neighbours;
+    this->neighbours = neighbours2;
+    neighbours_arraysize = newSize;
 }
 
 class FsrPacketDescriptor : public omnetpp::cClassDescriptor
@@ -322,7 +322,7 @@ class FsrPacketDescriptor : public omnetpp::cClassDescriptor
         FIELD_sequenceNumber,
         FIELD_scopeLevel,
         FIELD_origin,
-        FIELD_neighbors,
+        FIELD_neighbours,
     };
   public:
     FsrPacketDescriptor();
@@ -404,7 +404,7 @@ unsigned int FsrPacketDescriptor::getFieldTypeFlags(int field) const
         FD_ISEDITABLE,    // FIELD_sequenceNumber
         FD_ISEDITABLE,    // FIELD_scopeLevel
         0,    // FIELD_origin
-        FD_ISARRAY | FD_ISRESIZABLE,    // FIELD_neighbors
+        FD_ISARRAY | FD_ISRESIZABLE,    // FIELD_neighbours
     };
     return (field >= 0 && field < 4) ? fieldTypeFlags[field] : 0;
 }
@@ -421,7 +421,7 @@ const char *FsrPacketDescriptor::getFieldName(int field) const
         "sequenceNumber",
         "scopeLevel",
         "origin",
-        "neighbors",
+        "neighbours",
     };
     return (field >= 0 && field < 4) ? fieldNames[field] : nullptr;
 }
@@ -433,7 +433,7 @@ int FsrPacketDescriptor::findField(const char *fieldName) const
     if (strcmp(fieldName, "sequenceNumber") == 0) return baseIndex + 0;
     if (strcmp(fieldName, "scopeLevel") == 0) return baseIndex + 1;
     if (strcmp(fieldName, "origin") == 0) return baseIndex + 2;
-    if (strcmp(fieldName, "neighbors") == 0) return baseIndex + 3;
+    if (strcmp(fieldName, "neighbours") == 0) return baseIndex + 3;
     return base ? base->findField(fieldName) : -1;
 }
 
@@ -449,7 +449,7 @@ const char *FsrPacketDescriptor::getFieldTypeString(int field) const
         "unsigned int",    // FIELD_sequenceNumber
         "int",    // FIELD_scopeLevel
         "inet::L3Address",    // FIELD_origin
-        "inet::L3Address",    // FIELD_neighbors
+        "inet::L3Address",    // FIELD_neighbours
     };
     return (field >= 0 && field < 4) ? fieldTypeStrings[field] : nullptr;
 }
@@ -490,7 +490,7 @@ int FsrPacketDescriptor::getFieldArraySize(omnetpp::any_ptr object, int field) c
     }
     FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
-        case FIELD_neighbors: return pp->getNeighborsArraySize();
+        case FIELD_neighbours: return pp->getNeighboursArraySize();
         default: return 0;
     }
 }
@@ -507,7 +507,7 @@ void FsrPacketDescriptor::setFieldArraySize(omnetpp::any_ptr object, int field, 
     }
     FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
-        case FIELD_neighbors: pp->setNeighborsArraySize(size); break;
+        case FIELD_neighbours: pp->setNeighboursArraySize(size); break;
         default: throw omnetpp::cRuntimeError("Cannot set array size of field %d of class 'FsrPacket'", field);
     }
 }
@@ -539,7 +539,7 @@ std::string FsrPacketDescriptor::getFieldValueAsString(omnetpp::any_ptr object, 
         case FIELD_sequenceNumber: return ulong2string(pp->getSequenceNumber());
         case FIELD_scopeLevel: return long2string(pp->getScopeLevel());
         case FIELD_origin: return pp->getOrigin().str();
-        case FIELD_neighbors: return pp->getNeighbors(i).str();
+        case FIELD_neighbours: return pp->getNeighbours(i).str();
         default: return "";
     }
 }
@@ -575,7 +575,7 @@ omnetpp::cValue FsrPacketDescriptor::getFieldValue(omnetpp::any_ptr object, int 
         case FIELD_sequenceNumber: return (omnetpp::intval_t)(pp->getSequenceNumber());
         case FIELD_scopeLevel: return pp->getScopeLevel();
         case FIELD_origin: return omnetpp::toAnyPtr(&pp->getOrigin()); break;
-        case FIELD_neighbors: return omnetpp::toAnyPtr(&pp->getNeighbors(i)); break;
+        case FIELD_neighbours: return omnetpp::toAnyPtr(&pp->getNeighbours(i)); break;
         default: throw omnetpp::cRuntimeError("Cannot return field %d of class 'FsrPacket' as cValue -- field index out of range?", field);
     }
 }
@@ -622,7 +622,7 @@ omnetpp::any_ptr FsrPacketDescriptor::getFieldStructValuePointer(omnetpp::any_pt
     FsrPacket *pp = omnetpp::fromAnyPtr<FsrPacket>(object); (void)pp;
     switch (field) {
         case FIELD_origin: return omnetpp::toAnyPtr(&pp->getOrigin()); break;
-        case FIELD_neighbors: return omnetpp::toAnyPtr(&pp->getNeighbors(i)); break;
+        case FIELD_neighbours: return omnetpp::toAnyPtr(&pp->getNeighbours(i)); break;
         default: return omnetpp::any_ptr(nullptr);
     }
 }

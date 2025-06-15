@@ -29,7 +29,7 @@ class FsrPacket;
  *     unsigned int sequenceNumber;      // incremental sequence number
  *     int scopeLevel;          // which fisheye scope (0,1,2)
  *     inet::L3Address origin;        // originator’s address
- *     inet::L3Address neighbors[];   // dynamic array of one-hop neighbors
+ *     inet::L3Address neighbours[];   // dynamic array of one-hop neighbors
  * }
  * </pre>
  */
@@ -39,8 +39,8 @@ class FsrPacket : public ::inet::FieldsChunk
     unsigned int sequenceNumber = 0;
     int scopeLevel = 0;
     inet::L3Address origin;
-    inet::L3Address *neighbors = nullptr;
-    size_t neighbors_arraysize = 0;
+    inet::L3Address *neighbours = nullptr;
+    size_t neighbours_arraysize = 0;
 
   private:
     void copy(const FsrPacket& other);
@@ -67,15 +67,15 @@ class FsrPacket : public ::inet::FieldsChunk
     virtual inet::L3Address& getOriginForUpdate() { handleChange();return const_cast<inet::L3Address&>(const_cast<FsrPacket*>(this)->getOrigin());}
     virtual void setOrigin(const inet::L3Address& origin);
 
-    virtual void setNeighborsArraySize(size_t size);
-    virtual size_t getNeighborsArraySize() const;
-    virtual const inet::L3Address& getNeighbors(size_t k) const;
-    virtual inet::L3Address& getNeighborsForUpdate(size_t k) { handleChange();return const_cast<inet::L3Address&>(const_cast<FsrPacket*>(this)->getNeighbors(k));}
-    virtual void setNeighbors(size_t k, const inet::L3Address& neighbors);
-    virtual void insertNeighbors(size_t k, const inet::L3Address& neighbors);
-    [[deprecated]] void insertNeighbors(const inet::L3Address& neighbors) {appendNeighbors(neighbors);}
-    virtual void appendNeighbors(const inet::L3Address& neighbors);
-    virtual void eraseNeighbors(size_t k);
+    virtual void setNeighboursArraySize(size_t size);
+    virtual size_t getNeighboursArraySize() const;
+    virtual const inet::L3Address& getNeighbours(size_t k) const;
+    virtual inet::L3Address& getNeighboursForUpdate(size_t k) { handleChange();return const_cast<inet::L3Address&>(const_cast<FsrPacket*>(this)->getNeighbours(k));}
+    virtual void setNeighbours(size_t k, const inet::L3Address& neighbours);
+    virtual void insertNeighbours(size_t k, const inet::L3Address& neighbours);
+    [[deprecated]] void insertNeighbours(const inet::L3Address& neighbours) {appendNeighbours(neighbours);}
+    virtual void appendNeighbours(const inet::L3Address& neighbours);
+    virtual void eraseNeighbours(size_t k);
 };
 
 inline void doParsimPacking(omnetpp::cCommBuffer *b, const FsrPacket& obj) {obj.parsimPack(b);}
