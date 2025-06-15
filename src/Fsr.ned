@@ -9,14 +9,14 @@ simple Fsr
         @class("FsrRouting");           // C++ implementation class
         @display("i=block/routing");    // icon in Tkenv
         // References to INET tables
-        string routingTableModule    = default("^.routingTable");
+        string routingTableModule = default("^.ipv4.routingTable");
         string interfaceTableModule  = default("^.interfaceTable");
 
         // Fisheye scope update intervals (3 levels)
-        double scope0Interval @unit(s) = default(1s);
-        double scope1Interval @unit(s) = default(5s);
-        double scope2Interval @unit(s) = default(15s);
-        double randomDelay @unit(s) = default(1s);
+        double scope0Interval @unit(s) = default(10ms);
+        double scope1Interval @unit(s) = default(50ms);
+        double scope2Interval @unit(s) = default(150ms);
+        double randomDelay @unit(s) = default(10ms);
 
         // Fisheye scope radii (TTL in hops)
         int scope0Radius = default(1);

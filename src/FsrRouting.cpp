@@ -48,24 +48,21 @@ void FsrRouting::handleMessageWhenUp(inet::cMessage *msg)
     if (msg->isSelfMessage()) {
         handleSelfMessage(msg);
     }
-    else if (auto packet = dynamic_cast<inet::Packet*>(msg)) {
+    else{
         // UDP data or control packets
-        if (packet->getTag<inet::PacketProtocolTag>()->getProtocol() == &inet::Protocol::udp) {
-            socket.processMessage(packet);
-        }
-        else { // For packets not encapsulated in UDP in case I need it
-            processRoutingPacket(packet);
-        }
+        socket.processMessage(msg);
     }
 }
 
 void FsrRouting::handleSelfMessage(inet::cMessage *msg)
 {
     // find which scope timer triggered
+    EV_INFO << "[" << getSelfIPAddress() << "] " << "Handling a self message" <<std::endl;
     for (int i = 0; i < SCOPE_LEVELS; i++) {
         if (msg == scopeTimer[i]) {
+            EV_INFO << "[" << getSelfIPAddress() << "] Found the correct event for self message" <<std::endl;
             sendScopeUpdate(i);
-            omnetpp::simtime_t delay_amount  = omnetpp::SimTime(uniform(0, maxDelay),  omnetpp::SIMTIME_S);
+            omnetpp::simtime_t delay_amount  = omnetpp::SimTime(uniform(0, maxDelay));
             scheduleAt(inet::simTime() + scopeInterval[i] + delay_amount, scopeTimer[i]);
             break;
         }
@@ -74,11 +71,6 @@ void FsrRouting::handleSelfMessage(inet::cMessage *msg)
 
 void FsrRouting::sendScopeUpdate(int level)
 {
-    // TODO: Construct and send a link-state packet via UDP
-    // Hint: create a Packet, attach control info, set TTL=scopeRadius[level],
-    // then use socket.sendTo(packet, L3Address::BROADCAST_ADDRESS, destPort);
-
-        handleStaleEntries();
     // 1) Build the FsrPacket chunk
         auto fsr_packet= inet::makeShared<FsrPacket>();
         fsr_packet->setSequenceNumber(++sequenceNumber);
@@ -100,18 +92,19 @@ void FsrRouting::sendScopeUpdate(int level)
 
         fsr_packet->setChunkLength(inet::B(12 + 4 * neighbours.size()));
 
-        sendPacket(fsr_packet, level);
+        //Send packet with ttl equal to scope radius
+        EV_INFO << "[" << getSelfIPAddress() << "] Sending a update" <<std::endl;
+        sendPacket(fsr_packet, scopeRadius[level]);
 }
 
 void FsrRouting::processRoutingPacket(inet::Packet *packet)
 {
-    // TODO: extract sequence number and neighbor list from pkt,
-    // update topologyDB, then call computeRoutes();
 
     bool change_flag = false; // Keeps track of any changes in the tables
     auto arrivalPacketTime = packet->getArrivalTime();
     unsigned int arrivalPacketTTL  = packet->getTag<inet::HopLimitInd>()->getHopLimit() - 1;
     const auto& fsr_packet = packet->popAtFront<FsrPacket>();
+    EV_INFO << "[" << getSelfIPAddress() << "] Received a packet, checking for validity..." <<std::endl;
     if (!fsr_packet) {
            delete packet;
            return;
@@ -120,23 +113,28 @@ void FsrRouting::processRoutingPacket(inet::Packet *packet)
     //First check the origin of the message to compare sequence numbers
     auto seq  = fsr_packet->getSequenceNumber();
     auto origin     = fsr_packet->getOrigin();
+    EV_INFO << "[" << getSelfIPAddress() << "] Checking for a sequence number..." <<std::endl;
     if (seq > topologyDB[origin].seqNum) {
+        EV_INFO << "[" << getSelfIPAddress() << "] Sequence number matched, calculating topology" <<std::endl;
         // extract the other relevant information
        auto scopeLevel = fsr_packet->getScopeLevel();
        int  numNbrs    = fsr_packet->getNeighboursArraySize();
 
-       // If in the scopeLevel 1 meaning direct neighbour, update our own neighbour list
-       if(scopeLevel == 1){
+       // If in the scopeLevel 0 meaning direct neighbour, update our own neighbour list
+       if(scopeLevel == 0){
            auto& my_neighbours = topologyDB[getSelfIPAddress()].neighbours;
            auto result = my_neighbours.insert(origin);
+           EV_INFO << "[" << getSelfIPAddress() << "] Inserted "<<origin <<" as a neighbour!"<<std::endl;
            // If we added a new neighbour update the change flag
            change_flag = change_flag | result.second;
        }
 
        // build a set of neighbours to insert into the topology
        std::set<inet::L3Address> update_nbrs;
-       for (int i = 0; i < numNbrs; i++)
+       for (int i = 0; i < numNbrs; i++){
+           EV_INFO << "[" << getSelfIPAddress() << "] Neighbours of "<<origin <<":"<<fsr_packet->getNeighbours(i)<<std::endl;
            update_nbrs.insert(fsr_packet->getNeighbours(i));
+       }
 
        //Update topologyDB
        if (topologyDB[origin].neighbours != update_nbrs) {
@@ -144,13 +142,17 @@ void FsrRouting::processRoutingPacket(inet::Packet *packet)
                topologyDB[origin].timestamp = arrivalPacketTime;
                topologyDB[origin].seqNum = seq;
                change_flag = true;
+               EV_INFO << "[" << getSelfIPAddress() << "] Updated "<<origin <<"'s neighbour list into the topology"<<std::endl;
            }
        //Recompute routes whenever topology changes
-       if(change_flag)
+       if(change_flag){
+           EV_INFO << "[" << getSelfIPAddress() << "] Recomputing the routes"<<std::endl;
            computeRoutes();
+       }
 
-        if(arrivalPacketTTL!=0)
+        if(arrivalPacketTTL>0){
             sendPacket(fsr_packet,arrivalPacketTTL);
+        }
 
     }
 
@@ -182,6 +184,8 @@ inet::L3Address FsrRouting::getSelfIPAddress() const
 
 void FsrRouting::computeRoutes()
 {
+    // 0) Delete the stale entries
+    handleStaleEntries();
     // 1) clear the old next‐hop table
     for (int i = routingTable->getNumRoutes() - 1; i >= 0; --i) {
             auto *oldRoute = routingTable->getRoute(i);
@@ -199,9 +203,15 @@ void FsrRouting::computeRoutes()
     std::set<inet::L3Address> visited;
 
     // initialize all known nodes to “infinite” distance
-    for (auto &kv : topologyDB)
-        dist[kv.first] = INF;
-    // make sure we have an entry for ourselves
+    for (auto &kv : topologyDB) {
+        auto u = kv.first;
+        dist[u] = INF;
+        // also declare each neighbour so dist[nbr] is INF, not 0
+        for (auto &nbr : kv.second.neighbours) {
+            if (dist.find(nbr) == dist.end())
+                dist[nbr] = INF;
+        }
+    }
     if (dist.find(self_address) == dist.end())
         dist[self_address] = INF;
     dist[self_address] = 0;
@@ -219,16 +229,17 @@ void FsrRouting::computeRoutes()
         if (visited.count(u)) continue;
         visited.insert(u);
 
+        EV_INFO << "[" << getSelfIPAddress() << "] Djikstra current node: "<<u<<std::endl;
+
         // if this node has no links, give up on it
-        if (u != self_address && topologyDB[u].neighbours.empty())
+        if (topologyDB[u].neighbours.empty())
             continue;
 
         // relax all of u’s neighbors
         for (auto &v : topologyDB[u].neighbours) {
-            // skip v if it has no links
-            if (topologyDB[v].neighbours.empty())
-                continue;
-            if (!visited.count(v) && d + 1 < dist[v]) {
+            EV_INFO << "[" << getSelfIPAddress() << "] Djikstra current node: "<<u <<" Its neighbour "<<v<<std::endl;
+            if (!visited.count(v) && (d + 1 < dist[v])) {
+                EV_INFO << "[" << getSelfIPAddress() << "] Djikstra found a route to "<<v<<std::endl;
                 dist[v] = d + 1;
                 prev[v] = u;
                 pq.push({dist[v], v});
@@ -245,9 +256,21 @@ void FsrRouting::computeRoutes()
             continue;
         // walk predecessors until we hit self
         inet::L3Address hop = dest;
-        while (prev[hop] != self_address)
-            hop = prev[hop];
+        while (true) {
+            auto it = prev.find(hop);
+            if (it == prev.end()) {
+                //EV_WARN << "computeRoutes: no predecessor for " << hop<< ", giving up on route to " << dest << endl;
+                break;
+            }
+            if (it->second == self_address) {
+                // we found the first hop
+                break;
+            }
+            hop = it->second;
+        }
         // create & populate the route object
+
+        EV_INFO << "[" << getSelfIPAddress() << "] Adding a route to "<<dest <<" via "<<hop<<std::endl;
         auto route = routingTable->createRoute();
         route->setNextHop(hop);
         route->setDestination(dest);
@@ -261,6 +284,20 @@ void FsrRouting::computeRoutes()
         // finally add it to the table
         routingTable->addRoute(route);
     }
+
+    /* Print routes */
+       inet::L3AddressResolver resolver;
+       auto myName = getParentModule()->getFullName();
+
+       for (size_t i = 0 ; i < routingTable->getNumRoutes() ; ++i) {
+           auto route = routingTable->getRoute(i);
+           if (route->getSourceType() != FSR_ROUTE_TYPE) continue;
+
+           auto dest = resolver.findHostWithAddress(route->getDestinationAsGeneric())->getFullName();
+           auto hop  = resolver.findHostWithAddress(route->getNextHopAsGeneric())->getFullName();
+
+           EV_INFO << "[" << myName << "] " << "Route to: \"" << dest << "\" via \"" << hop << "\" metric: " << route->getMetric() << std::endl;
+       }
 }
 // Remove any neighbor whose last‐heard‐from timestamp is older than scopeInterval[0]*5
 void FsrRouting::handleStaleEntries()
@@ -327,7 +364,7 @@ void FsrRouting::handleStartOperation(inet::LifecycleOperation *operation)
         scopeRadius[i]   = par(radiusName.c_str());
         scopeTimer[i]    = new inet::cMessage("scopeTimer");
 
-        omnetpp::simtime_t delay_amount  = omnetpp::SimTime(uniform(0, maxDelay),  omnetpp::SIMTIME_S);
+        omnetpp::simtime_t delay_amount  = omnetpp::SimTime(uniform(0, maxDelay));
 
         scheduleAt(inet::simTime() + scopeInterval[i] + delay_amount, scopeTimer[i]);
     }
