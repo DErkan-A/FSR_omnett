@@ -1,4 +1,6 @@
 #include "FsrRouting.h"
+#include <queue>
+#include <limits>
 
 #include <inet/common/Units.h>
 #include <inet/linklayer/common/InterfaceTag_m.h>
@@ -17,14 +19,13 @@ Define_Module(FsrRouting);
 
 FsrRouting::FsrRouting()
 {
-    for (int i = 0; i < SCOPE_LEVELS; ++i)
+    for (int i = 0; i < SCOPE_LEVELS; i++)
         scopeTimer[i] = nullptr;
 }
 
 FsrRouting::~FsrRouting()
 {
-    for (int i = 0; i < SCOPE_LEVELS; ++i)
-        cancelAndDelete(scopeTimer[i]);
+    clearState();
     socket.close();
 }
 
@@ -52,7 +53,7 @@ void FsrRouting::handleMessageWhenUp(inet::cMessage *msg)
         if (packet->getTag<inet::PacketProtocolTag>()->getProtocol() == &inet::Protocol::udp) {
             socket.processMessage(packet);
         }
-        else {
+        else { // For packets not encapsulated in UDP in case I need it
             processRoutingPacket(packet);
         }
     }
@@ -61,7 +62,7 @@ void FsrRouting::handleMessageWhenUp(inet::cMessage *msg)
 void FsrRouting::handleSelfMessage(inet::cMessage *msg)
 {
     // find which scope timer triggered
-    for (int i = 0; i < SCOPE_LEVELS; ++i) {
+    for (int i = 0; i < SCOPE_LEVELS; i++) {
         if (msg == scopeTimer[i]) {
             sendScopeUpdate(i);
             omnetpp::simtime_t delay_amount  = omnetpp::SimTime(uniform(0, maxDelay),  omnetpp::SIMTIME_S);
@@ -77,6 +78,7 @@ void FsrRouting::sendScopeUpdate(int level)
     // Hint: create a Packet, attach control info, set TTL=scopeRadius[level],
     // then use socket.sendTo(packet, L3Address::BROADCAST_ADDRESS, destPort);
 
+        handleStaleEntries();
     // 1) Build the FsrPacket chunk
         auto fsr_packet= inet::makeShared<FsrPacket>();
         fsr_packet->setSequenceNumber(++sequenceNumber);
@@ -133,7 +135,7 @@ void FsrRouting::processRoutingPacket(inet::Packet *packet)
 
        // build a set of neighbours to insert into the topology
        std::set<inet::L3Address> update_nbrs;
-       for (int i = 0; i < numNbrs; ++i)
+       for (int i = 0; i < numNbrs; i++)
            update_nbrs.insert(fsr_packet->getNeighbours(i));
 
        //Update topologyDB
@@ -180,9 +182,112 @@ inet::L3Address FsrRouting::getSelfIPAddress() const
 
 void FsrRouting::computeRoutes()
 {
-    // TODO: run Dijkstra over topologyDB, fill nextHop map
-}
+    // 1) clear the old next‐hop table
+    for (int i = routingTable->getNumRoutes() - 1; i >= 0; --i) {
+            auto *oldRoute = routingTable->getRoute(i);
+            if (oldRoute->getSourceType() == FSR_ROUTE_TYPE)
+                routingTable->deleteRoute(oldRoute);
+        }
 
+    // 2) our “source” node
+    const auto self_address = getSelfIPAddress();
+
+    // 3) prepare Dijkstra structures
+    const int INF = std::numeric_limits<int>::max();
+    std::map<inet::L3Address,int> dist;
+    std::map<inet::L3Address,inet::L3Address> prev;
+    std::set<inet::L3Address> visited;
+
+    // initialize all known nodes to “infinite” distance
+    for (auto &kv : topologyDB)
+        dist[kv.first] = INF;
+    // make sure we have an entry for ourselves
+    if (dist.find(self_address) == dist.end())
+        dist[self_address] = INF;
+    dist[self_address] = 0;
+
+    // min‐heap of (distance, node)
+    using Pair = std::pair<int,inet::L3Address>;
+    //This will be used to select the minimum distance node
+    auto cmp = [](const Pair &a, const Pair &b){ return a.first > b.first; };
+    std::priority_queue<Pair, std::vector<Pair>, decltype(cmp)> pq(cmp);
+    pq.push({0, self_address});
+
+    // 4) main Dijkstra loop
+    while (!pq.empty()) {
+        auto [d,u] = pq.top(); pq.pop();
+        if (visited.count(u)) continue;
+        visited.insert(u);
+
+        // if this node has no links, give up on it
+        if (u != self_address && topologyDB[u].neighbours.empty())
+            continue;
+
+        // relax all of u’s neighbors
+        for (auto &v : topologyDB[u].neighbours) {
+            // skip v if it has no links
+            if (topologyDB[v].neighbours.empty())
+                continue;
+            if (!visited.count(v) && d + 1 < dist[v]) {
+                dist[v] = d + 1;
+                prev[v] = u;
+                pq.push({dist[v], v});
+            }
+        }
+    }
+
+    // 5) build nextHop: for each reachable dest ≠ self, walk back to find the first hop
+    auto addrType = self_address.getAddressType();
+    for (auto &p : dist) {
+        auto dest = p.first;
+        auto d    = p.second;
+        if (dest == self_address || d == INF)
+            continue;
+        // walk predecessors until we hit self
+        inet::L3Address hop = dest;
+        while (prev[hop] != self_address)
+            hop = prev[hop];
+        // create & populate the route object
+        auto route = routingTable->createRoute();
+        route->setNextHop(hop);
+        route->setDestination(dest);
+        route->setMetric(d);
+        route->setPrefixLength(addrType->getMaxPrefixLength());
+        if (auto ifEntry = interfaceTable->findInterfaceByName(par("interface")))
+            route->setInterface(ifEntry);
+        route->setSourceType(FSR_ROUTE_TYPE);
+        route->setSource(this);
+
+        // finally add it to the table
+        routingTable->addRoute(route);
+    }
+}
+// Remove any neighbor whose last‐heard‐from timestamp is older than scopeInterval[0]*5
+void FsrRouting::handleStaleEntries()
+{
+    const auto self_address = getSelfIPAddress();
+    auto &myNeighbours = topologyDB[self_address].neighbours;
+    // threshold = 5 × the level-0 interval
+    omnetpp::simtime_t staleThreshold = scopeInterval[0] * 5;
+    omnetpp::simtime_t now = omnetpp::simTime();
+
+    // 1) collect all neighbours that are too old
+    std::vector<inet::L3Address> toRemove;
+    for (const auto &nbr : myNeighbours) {
+        auto it = topologyDB.find(nbr);
+        // either no record (sanity check) or record is stale
+        if (it == topologyDB.end() || (now - it->second.timestamp) > staleThreshold) {
+            toRemove.push_back(nbr);
+        }
+    }
+
+    // 2) erase them from both our neighbour set and the topologyDB
+    for (const auto &nbr : toRemove) {
+        myNeighbours.erase(nbr);
+        topologyDB.erase(nbr);
+        EV_INFO << "I am node "<<self_address<<", removed stale entry for " << nbr << std::endl;
+    }
+}
 // UDP callback: data arrived from socket
 void FsrRouting::socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet)
 {
@@ -193,28 +298,13 @@ void FsrRouting::socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet
 void FsrRouting::socketErrorArrived(inet::UdpSocket *socket, inet::Indication *indication)
 {
     // ignore or log
+    EV_WARN << "Ignoring the UDP error as I cannot bother" << indication->getName() << std::endl;
     delete indication;
 }
 
 void FsrRouting::socketClosed(inet::UdpSocket *socket)
 {
     // cleanup if needed
-}
-
-void FsrRouting::clearState()
-{
-    // Cancel and delete any scheduled scope‐update timers
-    for (int i = 0; i < SCOPE_LEVELS; ++i) {
-        if (scopeTimer[i] != nullptr) {
-            cancelAndDelete(scopeTimer[i]);
-            scopeTimer[i] = nullptr;
-        }
-    }
-
-    // Reset sequence numbering and topology
-    sequenceNumber = 0;
-    topologyDB.clear();
-    nextHop.clear();
 }
 
 
@@ -229,7 +319,7 @@ void FsrRouting::handleStartOperation(inet::LifecycleOperation *operation)
 
 
     // schedule scope timers
-    for (int i = 0; i < SCOPE_LEVELS; ++i) {
+    for (int i = 0; i < SCOPE_LEVELS; i++) {
         std::string intervalName = "scope" + std::to_string(i) + "Interval";
         std::string radiusName   = "scope" + std::to_string(i) + "Radius";
 
@@ -241,6 +331,21 @@ void FsrRouting::handleStartOperation(inet::LifecycleOperation *operation)
 
         scheduleAt(inet::simTime() + scopeInterval[i] + delay_amount, scopeTimer[i]);
     }
+}
+
+void FsrRouting::clearState()
+{
+    // Cancel and delete any scheduled scope‐update timers
+    for (int i = 0; i < SCOPE_LEVELS; i++) {
+        if (scopeTimer[i] != nullptr) {
+            cancelAndDelete(scopeTimer[i]);
+            scopeTimer[i] = nullptr;
+        }
+    }
+
+    // Reset sequence numbering and topology
+    sequenceNumber = 0;
+    topologyDB.clear();
 }
 
 void FsrRouting::handleStopOperation(inet::LifecycleOperation *operation)

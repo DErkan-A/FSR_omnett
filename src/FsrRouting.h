@@ -42,17 +42,15 @@ class FsrRouting : public inet::RoutingProtocolBase,
     struct LinkStateRecord {
         omnetpp::simtime_t                timestamp;
         unsigned int                      seqNum;
+        int                               scopeLevel;
         std::set<inet::L3Address>      neighbours;
     };
     std::map<inet::L3Address, LinkStateRecord> topologyDB;
 
-    // Computed next‐hop table: destination → next hop
-    std::map<inet::L3Address, inet::L3Address> nextHop;
-
     // Lifecycle hooks
     virtual int  numInitStages() const override { return inet::NUM_INIT_STAGES; }
-    virtual void initialize(int stage) override;
-    virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
+    void initialize(int stage) override;
+    void handleMessageWhenUp(omnetpp::cMessage *msg) override;
     void handleStartOperation(inet::LifecycleOperation *operation) override;
     void handleStopOperation(inet::LifecycleOperation *operation) override;
     void handleCrashOperation(inet::LifecycleOperation *operation) override;
@@ -60,21 +58,22 @@ class FsrRouting : public inet::RoutingProtocolBase,
 
 
     // UDP callbacks
-    virtual void socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet) override;
-    virtual void socketErrorArrived(inet::UdpSocket *socket, inet::Indication *indication) override;
-    virtual void socketClosed(inet::UdpSocket *socket) override;
+    void socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet) override;
+    void socketErrorArrived(inet::UdpSocket *socket, inet::Indication *indication) override;
+    void socketClosed(inet::UdpSocket *socket) override;
 
     // Core FSR routines
-    virtual void handleSelfMessage(omnetpp::cMessage *msg);
-    virtual void sendScopeUpdate(int level);
-    virtual void processRoutingPacket(inet::Packet *packet);
-    virtual void computeRoutes();
-
+    void handleSelfMessage(omnetpp::cMessage *msg);
+    void sendScopeUpdate(int level);
+    void processRoutingPacket(inet::Packet *packet);
+    void computeRoutes();
+    void handleStaleEntries();
     //Helpers
     inet::L3Address getSelfIPAddress() const;
     void sendPacket(const inet::Ptr<const FsrPacket>& fsr_packet, int fsr_TTL);
 
   public:
+    static constexpr inet::IRoute::SourceType FSR_ROUTE_TYPE = inet::IRoute::SourceType::MANUAL;
     FsrRouting();
     virtual ~FsrRouting();
 };
