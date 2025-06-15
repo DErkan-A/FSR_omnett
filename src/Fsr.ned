@@ -13,10 +13,10 @@ simple Fsr
         string interfaceTableModule  = default("^.interfaceTable");
 
         // Fisheye scope update intervals (3 levels)
-        double scope0Interval @unit(s) = default(10ms);
-        double scope1Interval @unit(s) = default(50ms);
-        double scope2Interval @unit(s) = default(150ms);
-        double randomDelay @unit(s) = default(10ms);
+        double scope0Interval @unit(s) = default(100ms);
+        double scope1Interval @unit(s) = default(200ms);
+        double scope2Interval @unit(s) = default(400ms);
+        double randomDelay @unit(s) = default(50ms);
 
         // Fisheye scope radii (TTL in hops)
         int scope0Radius = default(1);
